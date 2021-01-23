@@ -2,79 +2,70 @@
 # >> IMPORTS
 # =============================================================================
 from commands.client import ClientCommand
-from entities.entity import BaseEntity
-from events import Event
-from filters.players import PlayerIter
-from listeners import OnClientActive, OnPlayerRunCommand
+from listeners import OnPlayerRunCommand
 from players.constants import PlayerButtons
 from players.entity import Player
 
 # =============================================================================
 # >> CONFIG
 # =============================================================================
-
 zoom_button = PlayerButtons.ATTACK2
 zoom_level = 30
 zoom_weapons = ['weapon_357']
 zoom_exclude = ['weapon_crossbow']
 
 # =============================================================================
-# >> GLOBAL VARS
+# >> CLASSES
 # =============================================================================
+class ZoomPlayer(Player):
+    def __init__(self, index, caching=True):
+        super().__init__(index, caching)
+        self.pressed = False
+        self.in_zoom = False
+        
+    def toggle_zoom(self):
+        weapon = self.active_weapon
+        if weapon is None or weapon.classname not in zoom_weapons:
+            return
 
-pressed = {}
-in_zoom = {}
+        self.fov = self.default_fov if self.fov == zoom_level else zoom_level 
 
 # =============================================================================
-# >> LOAD
+# >> COMMANDS
 # =============================================================================
-
-for player in PlayerIter():
-    pressed[player.userid] = 0
-    in_zoom[player.userid] = 0
+@ClientCommand('do_zoom')
+def _zoom_client_command(command,index,team_only=False):
+    player = ZoomPlayer(index)
+    weapon = player.active_weapon
+    if weapon == None: return
+    if weapon.classname in zoom_weapons:
+        player.toggle_zoom()        
 
 # =============================================================================
 # >> LISTENERS
 # =============================================================================
-@OnClientActive
-def on_client_active(index):
-    in_zoom[Player(index).userid] = 0
-    pressed[Player(index).userid] = 0
-    
-@ClientCommand('do_zoom')
-def _zoom_client_command(command,index,team_only=False):
-    player = Player(index)
-    if player.active_weapon == None: return
-    if player.active_weapon.classname in zoom_weapons:
-        if in_zoom[player.userid] != 1:
-            player.fov = zoom_level
-            in_zoom[player.userid] = 1
-        else:
-            player.fov = 90
-            in_zoom[player.userid] = 0
-
-@OnPlayerRunCommand
-def on_player_run_command(player, user_cmd):
-    if zoom_button != None:
+if zoom_button != None:        
+    @OnPlayerRunCommand
+    def on_player_run_command(ply, user_cmd):
+        player = ZoomPlayer(ply.index)
+        weapon = player.active_weapon
+        default_pov = player.default_fov
+        if weapon == None: return
         if user_cmd.buttons & zoom_button:
-            if player.active_weapon.classname in zoom_weapons:
-                if pressed[player.userid] == 0:
-                    if in_zoom[player.userid] != 1:
-                        pressed[player.userid] = 1
+            if weapon.classname in zoom_weapons:
+                if player.pressed == False:
+                    if player.in_zoom == False:
+                        player.pressed = True
                         player.fov = zoom_level
-                        in_zoom[player.userid] = 1
+                        player.in_zoom = True
                     else:
-                        player.fov = 90
-                        in_zoom[player.userid] = 0
-                        pressed[player.userid] = 1
+                        player.fov = default_pov
+                        player.in_zoom = 0
+                        player.pressed = 1
         else:
-            if pressed[player.userid] == 1:
-                pressed[player.userid] = 0
-    if player.active_weapon != None:
-        if player.active_weapon.classname not in zoom_weapons and player.active_weapon.classname not in zoom_exclude:
-            player.fov = 90
-            in_zoom[player.userid] = 0
-            pressed[player.userid] = 0
-
-
-        pressed[player.userid] = 0
+            if player.pressed == 1:
+                player.pressed = 0
+        if weapon.classname not in zoom_weapons and weapon.classname not in zoom_exclude:
+            player.fov = default_pov
+            player.in_zoom = False
+            player.pressed = False
