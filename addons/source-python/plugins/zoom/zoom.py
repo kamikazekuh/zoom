@@ -37,7 +37,7 @@ class ZoomPlayer(Player):
 def _zoom_client_command(command,index,team_only=False):
     player = ZoomPlayer(index)
     weapon = player.active_weapon
-    if weapon == None: return
+    if weapon is None: return
     if weapon.classname in zoom_weapons:
         player.toggle_zoom()        
 
@@ -50,21 +50,21 @@ if zoom_button != None:
         player = ZoomPlayer(ply.index)
         weapon = player.active_weapon
         default_pov = player.default_fov
-        if weapon == None: return
+        if weapon is None: return
         if user_cmd.buttons & zoom_button:
             if weapon.classname in zoom_weapons:
-                if player.pressed == False:
-                    if player.in_zoom == False:
+                if not player.pressed:
+                    if not player.in_zoom:
                         player.pressed = True
                         player.fov = zoom_level
                         player.in_zoom = True
                     else:
                         player.fov = default_pov
-                        player.in_zoom = 0
-                        player.pressed = 1
+                        player.in_zoom = False
+                        player.pressed = True
         else:
-            if player.pressed == 1:
-                player.pressed = 0
+            if player.pressed == True:
+                player.pressed = False
         if weapon.classname not in zoom_weapons and weapon.classname not in zoom_exclude:
             player.fov = default_pov
             player.in_zoom = False
